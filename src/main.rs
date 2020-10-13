@@ -16,14 +16,14 @@ fn main() -> Result<()> {
         .about("Snek game!")
         .arg(
             Arg::with_name("width")
-                .short("w")
+                .short("x")
                 .help("the width of the board")
                 .takes_value(true)
                 .default_value("45"),
         )
         .arg(
             Arg::with_name("height")
-                .short("h")
+                .short("y")
                 .help("the height of the board")
                 .takes_value(true)
                 .default_value("45"),
