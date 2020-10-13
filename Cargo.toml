@@ -1,5 +1,5 @@
 [package]
-name = "Snek"
+name = "snek"
 version = "0.1.0"
 authors = ["LordMZTE <lord@mzte.de>"]
 edition = "2018"

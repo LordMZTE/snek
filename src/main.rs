@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate smart_default;
 #[macro_use]
-extern crate piston_test;
+extern crate snek;
 use crate::logic::Game;
 use anyhow::{Context, Result};
 use clap::{App, Arg};
@@ -40,6 +40,7 @@ fn main() -> Result<()> {
         WindowSettings::new("Snek", (size.0 as u32 * 20, size.1 as u32 * 20))
             .graphics_api(gl)
             .exit_on_esc(true)
+            .resizable(false)
             .build()
             .unwrap();
 
@@ -47,7 +48,8 @@ fn main() -> Result<()> {
         include_bytes!("../assets/FiraSans-Regular.ttf"),
         (),
         TextureSettings::new(),
-    ).unwrap();
+    )
+    .unwrap();
 
     let mut game = Game::new(GlGraphics::new(gl), size, glyphs);
 
