@@ -5,3 +5,4 @@ snake game written in rust
 - move using the arrow keys or WASD
 - pause the game with space
 - use -x and -y command line arguments to change size of game
+- use r to restart

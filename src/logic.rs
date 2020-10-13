@@ -18,12 +18,6 @@ pub enum GameState {
     Paused,
 }
 
-impl Default for GameState {
-    fn default() -> Self {
-        GameState::Running
-    }
-}
-
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Direction {
     Up,
@@ -86,10 +80,10 @@ impl<'a> Game<'a> {
             gl,
             game_size,
             glyphs,
+            state: GameState::Paused,
             apple_rand: rand::thread_rng(),
             snek: Default::default(),
             apple_pos: Default::default(),
-            state: Default::default(),
         }
     }
 
@@ -193,12 +187,18 @@ impl<'a> Game<'a> {
                 }
             }
 
-            if let Key::Space = k {
-                match self.state {
+            match k {
+                Key::Space => match self.state {
                     GameState::Running => self.state = GameState::Paused,
                     GameState::Paused => self.state = GameState::Running,
                     _ => {},
-                }
+                },
+                Key::R => {
+                    self.state = GameState::Paused;
+                    self.snek = Snek::default();
+                    self.randomize_apple();
+                },
+                _ => {},
             }
         }
     }
