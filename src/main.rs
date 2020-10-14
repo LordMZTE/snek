@@ -1,15 +1,17 @@
 #[macro_use]
-extern crate smart_default;
-#[macro_use]
 extern crate snek;
 use crate::logic::Game;
 use anyhow::{Context, Result};
 use clap::{App, Arg};
 use glutin_window::GlutinWindow;
+use logic::GameSettings;
 use opengl_graphics::{GlGraphics, GlyphCache, OpenGL, TextureSettings};
 use piston::{ButtonEvent, EventSettings, Events, RenderEvent, UpdateEvent, WindowSettings};
 
 pub mod logic;
+
+const ARG_FAIL_MESSAGE: &str = "arg fail";
+
 fn main() -> Result<()> {
     let matches = App::new("Snek")
         .author("LordMZTE")
@@ -28,21 +30,51 @@ fn main() -> Result<()> {
                 .takes_value(true)
                 .default_value("45"),
         )
+        .arg(
+            Arg::with_name("tile_size")
+                .short("t")
+                .help("the size that each tile will have")
+                .takes_value(true)
+                .default_value("20"),
+        )
+        .arg(
+            Arg::with_name("updates_per_move")
+                .short("u")
+                .help("how many updates it takes for the snek to move 1 tile")
+                .takes_value(true)
+                .default_value("10"),
+        )
         .get_matches();
 
     let gl = OpenGL::V3_2;
     let size: (u8, u8) = (
-        matches.value_of("width").context("arg fail")?.parse()?,
-        matches.value_of("height").context("arg fail")?.parse()?,
+        matches
+            .value_of("width")
+            .context(ARG_FAIL_MESSAGE)?
+            .parse()?,
+        matches
+            .value_of("height")
+            .context(ARG_FAIL_MESSAGE)?
+            .parse()?,
     );
 
-    let mut win: GlutinWindow =
-        WindowSettings::new("Snek", (size.0 as u32 * 20, size.1 as u32 * 20))
-            .graphics_api(gl)
-            .exit_on_esc(true)
-            .resizable(false)
-            .build()
-            .unwrap();
+    let tile_size: u16 = matches
+        .value_of("tile_size")
+        .context(ARG_FAIL_MESSAGE)?
+        .parse()?;
+
+    let mut win: GlutinWindow = WindowSettings::new(
+        "Snek",
+        (
+            size.0 as u32 * (tile_size as u32),
+            size.1 as u32 * (tile_size as u32),
+        ),
+    )
+    .graphics_api(gl)
+    .exit_on_esc(true)
+    .resizable(false)
+    .build()
+    .unwrap();
 
     let glyphs = GlyphCache::from_bytes(
         include_bytes!("../assets/FiraSans-Regular.ttf"),
@@ -51,7 +83,17 @@ fn main() -> Result<()> {
     )
     .unwrap();
 
-    let mut game = Game::new(GlGraphics::new(gl), size, glyphs);
+    let mut game = Game::new(GameSettings {
+        gl: GlGraphics::new(gl),
+        game_size: size,
+        glyphs,
+        tile_size,
+        // TODO add command line args
+        updates_per_move: matches
+            .value_of("updates_per_move")
+            .context(ARG_FAIL_MESSAGE)?
+            .parse()?,
+    });
 
     let mut events = Events::new(EventSettings::new());
     while let Some(ev) = events.next(&mut win) {

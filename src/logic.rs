@@ -2,14 +2,13 @@ use std::{collections::LinkedList, convert::TryFrom, ops::Not};
 
 use graphics::{types::Color, Transformed};
 use opengl_graphics::{GlGraphics, GlyphCache};
-use piston::{Button, Key, RenderArgs, UpdateArgs, ButtonArgs, ButtonState};
+use piston::{Button, ButtonArgs, ButtonState, Key, RenderArgs, UpdateArgs};
 use rand::{prelude::ThreadRng, Rng};
 
 const BACKGROUND: Color = [0., 0., 0., 1.];
 const SNEK_COLOR: Color = [1., 0., 0., 1.];
 const OUT_OF_BOUNDS_COLOR: Color = [0., 0., 1., 1.];
 const APPLE_COLOR: Color = [0., 1., 0., 1.];
-const UPDATES_PER_MOVE: u8 = 10;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum GameState {
@@ -64,6 +63,14 @@ impl Not for &Direction {
     }
 }
 
+pub struct GameSettings<'a> {
+    pub gl: GlGraphics,
+    pub game_size: (u8, u8),
+    pub glyphs: GlyphCache<'a>,
+    pub updates_per_move: u8,
+    pub tile_size: u16,
+}
+
 pub struct Game<'a> {
     pub gl: GlGraphics,
     snek: Snek,
@@ -72,17 +79,21 @@ pub struct Game<'a> {
     pub game_size: (u8, u8),
     pub state: GameState,
     pub glyphs: GlyphCache<'a>,
+    pub updates_per_move: u8,
+    pub tile_size: u16,
 }
 
 impl<'a> Game<'a> {
-    pub fn new(gl: GlGraphics, game_size: (u8, u8), glyphs: GlyphCache<'a>) -> Self {
+    pub fn new(sets: GameSettings<'a>) -> Self {
         Self {
-            gl,
-            game_size,
-            glyphs,
+            updates_per_move: sets.updates_per_move,
+            tile_size: sets.tile_size,
+            gl: sets.gl,
+            game_size: sets.game_size,
+            glyphs: sets.glyphs,
             state: GameState::Paused,
             apple_rand: rand::thread_rng(),
-            snek: Default::default(),
+            snek: Snek::new(sets.updates_per_move),
             apple_pos: Default::default(),
         }
     }
@@ -93,6 +104,7 @@ impl<'a> Game<'a> {
         let snek = &mut self.snek;
         let glyphs = &mut self.glyphs;
         let state = self.state;
+        let tile_size = self.tile_size;
 
         self.gl.draw(args.viewport(), |c, g| {
             // clear
@@ -103,8 +115,8 @@ impl<'a> Game<'a> {
                 [
                     0.,
                     0.,
-                    ((size.0 as u16) * 20) as f64,
-                    ((size.1 as u16) * 20) as f64,
+                    ((size.0 as u16) * tile_size) as f64,
+                    ((size.1 as u16) * tile_size) as f64,
                 ],
                 c.transform,
                 g,
@@ -114,10 +126,10 @@ impl<'a> Game<'a> {
                 graphics::rectangle(
                     APPLE_COLOR,
                     [
-                        ((a.0 as u16) * 20) as f64,
-                        ((a.1 as u16) * 20) as f64,
-                        20.,
-                        20.,
+                        ((a.0 as u16) * tile_size) as f64,
+                        ((a.1 as u16) * tile_size) as f64,
+                        tile_size as f64,
+                        tile_size as f64,
                     ],
                     c.transform,
                     g,
@@ -125,7 +137,7 @@ impl<'a> Game<'a> {
             }
 
             // snek
-            snek.render(g, &args);
+            snek.render(g, &args, tile_size);
 
             // score
             graphics::text(
@@ -135,7 +147,8 @@ impl<'a> Game<'a> {
                 glyphs,
                 c.transform.trans(10.0, 50.0),
                 g,
-            ).unwrap();
+            )
+            .unwrap();
 
             // game over
             match state {
@@ -157,7 +170,7 @@ impl<'a> Game<'a> {
                     g,
                 )
                 .unwrap(),
-                _ => {}
+                _ => {},
             }
         });
     }
@@ -195,7 +208,7 @@ impl<'a> Game<'a> {
                 },
                 Key::R => {
                     self.state = GameState::Paused;
-                    self.snek = Snek::default();
+                    self.snek = Snek::new(self.updates_per_move);
                     self.randomize_apple();
                 },
                 _ => {},
@@ -231,24 +244,33 @@ impl PartialEq<(u8, u8)> for &SnekSeg {
     }
 }
 
-#[derive(SmartDefault, Debug)]
+#[derive(Debug)]
 struct Snek {
-    #[default(linked_list![
-        SnekSeg(0, 0),
-    ])]
     pub segs: LinkedList<SnekSeg>,
-    #[default(Direction::Right)]
     pub dir: Direction,
-    #[default(Direction::Right)]
     pub next_dir: Direction,
     pub move_counter: u8,
+    pub updates_per_move: u8,
 }
 
 impl Snek {
-    pub fn render(&mut self, gl: &mut GlGraphics, args: &RenderArgs) {
+    pub fn new(updates_per_move: u8) -> Self {
+        Self {
+            updates_per_move,
+            segs: linked_list![SnekSeg(0, 0)],
+            dir: Direction::Right,
+            next_dir: Direction::Right,
+            move_counter: 0,
+        }
+    }
+    pub fn render(&mut self, gl: &mut GlGraphics, args: &RenderArgs, tile_size: u16) {
         let rects = self.segs.iter().map(|s| {
             // type cast to u16 to prevent overflow when multiplying
-            graphics::rectangle::square((s.0 as u16 * 20) as f64, (s.1 as u16 * 20) as f64, 20.)
+            graphics::rectangle::square(
+                (s.0 as u16 * tile_size) as f64,
+                (s.1 as u16 * tile_size) as f64,
+                tile_size as f64,
+            )
         });
 
         gl.draw(args.viewport(), |c, gl| {
@@ -263,7 +285,7 @@ impl Snek {
         let mut ate_apple = false;
         let mut lost = false;
         self.move_counter += 1;
-        if self.move_counter >= UPDATES_PER_MOVE {
+        if self.move_counter >= self.updates_per_move {
             self.move_counter = 0;
 
             self.dir = self.next_dir;
