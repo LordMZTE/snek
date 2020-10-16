@@ -1,5 +1,6 @@
 # Snek
-![](https://travis-ci.org/LordMZTE/utils.svg?branch=master)
+![](https://travis-ci.org/LordMZTE/snek.svg?branch=master)
+
 snake game written in rust
 
 ## how to play
