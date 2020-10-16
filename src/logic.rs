@@ -1,6 +1,6 @@
 use std::{collections::LinkedList, convert::TryFrom, ops::Not};
 
-use graphics::{types::Color, Transformed};
+use graphics::{math::Matrix2d, types::Color, Transformed};
 use opengl_graphics::{GlGraphics, GlyphCache};
 use piston::{Button, ButtonArgs, ButtonState, Key, RenderArgs, UpdateArgs};
 use rand::{prelude::ThreadRng, Rng};
@@ -71,6 +71,25 @@ pub struct GameSettings<'a> {
     pub tile_size: u16,
 }
 
+fn draw_tile(
+    gl: &mut GlGraphics,
+    transform: Matrix2d,
+    tile_size: u16,
+    pos: (u8, u8),
+    color: Color,
+) {
+    graphics::rectangle(
+        color,
+        graphics::rectangle::square(
+            (pos.0 as u16 * tile_size) as f64,
+            (pos.1 as u16 * tile_size) as f64,
+            tile_size as f64,
+        ),
+        transform,
+        gl,
+    );
+}
+
 pub struct Game<'a> {
     pub gl: GlGraphics,
     snek: Snek,
@@ -123,17 +142,7 @@ impl<'a> Game<'a> {
             );
             // apple
             if let Some(a) = apple {
-                graphics::rectangle(
-                    APPLE_COLOR,
-                    [
-                        ((a.0 as u16) * tile_size) as f64,
-                        ((a.1 as u16) * tile_size) as f64,
-                        tile_size as f64,
-                        tile_size as f64,
-                    ],
-                    c.transform,
-                    g,
-                );
+                draw_tile(g, c.transform, tile_size, a, APPLE_COLOR);
             }
 
             // snek
@@ -227,7 +236,7 @@ impl<'a> Game<'a> {
     }
 }
 
-#[derive(Default, Debug, Copy, Clone)]
+#[derive(Default, Debug, Copy, Clone, PartialEq)]
 struct SnekSeg(pub u8, pub u8);
 
 impl SnekSeg {
@@ -238,9 +247,15 @@ impl SnekSeg {
     }
 }
 
-impl PartialEq<(u8, u8)> for &SnekSeg {
-    fn eq(&self, other: &(u8, u8)) -> bool {
-        self.0 == other.0 && self.1 == other.1
+impl Into<(u8, u8)> for &SnekSeg {
+    fn into(self) -> (u8, u8) {
+        (self.0, self.1)
+    }
+}
+
+impl From<(u8, u8)> for SnekSeg {
+    fn from(t: (u8, u8)) -> Self {
+        SnekSeg(t.0, t.1)
     }
 }
 
@@ -264,18 +279,11 @@ impl Snek {
         }
     }
     pub fn render(&mut self, gl: &mut GlGraphics, args: &RenderArgs, tile_size: u16) {
-        let rects = self.segs.iter().map(|s| {
-            // type cast to u16 to prevent overflow when multiplying
-            graphics::rectangle::square(
-                (s.0 as u16 * tile_size) as f64,
-                (s.1 as u16 * tile_size) as f64,
-                tile_size as f64,
-            )
-        });
+        let iter = self.segs.iter();
 
         gl.draw(args.viewport(), |c, gl| {
-            for rect in rects {
-                graphics::rectangle(SNEK_COLOR, rect, c.transform, gl)
+            for s in iter {
+                draw_tile(gl, c.transform, tile_size, s.into(), SNEK_COLOR);
             }
         });
     }
@@ -315,11 +323,11 @@ impl Snek {
             }
 
             // check if snek collides with self
-            lost = self.segs.iter().any(|s| s == (moved.0, moved.1));
+            lost = self.segs.iter().any(|s| s == &moved);
 
             self.segs.push_front(moved);
 
-            ate_apple = self.segs.front().expect("snek has no body") == apple_pos;
+            ate_apple = self.segs.front().expect("snek has no body") == &SnekSeg::from(apple_pos);
             if !ate_apple {
                 self.segs.pop_back();
             }
@@ -330,7 +338,7 @@ impl Snek {
 
     /// returns true if any part of the snek intersects with the apple
     pub fn check_collides(&self, pos: (u8, u8)) -> bool {
-        self.segs.iter().any(|s| s == pos)
+        self.segs.iter().any(|s| s == &SnekSeg::from(pos))
     }
 }
 
