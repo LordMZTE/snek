@@ -3,10 +3,12 @@ extern crate snek;
 use crate::logic::Game;
 use anyhow::{Context, Result};
 use clap::{App, Arg};
+use font_kit::{family_name::FamilyName, properties::Properties, source::SystemSource};
 use glutin_window::GlutinWindow;
 use logic::GameSettings;
 use opengl_graphics::{GlGraphics, GlyphCache, OpenGL, TextureSettings};
 use piston::{ButtonEvent, EventSettings, Events, RenderEvent, UpdateEvent, WindowSettings};
+use snek::load_font_bytes;
 
 pub mod logic;
 
@@ -76,8 +78,13 @@ fn main() -> Result<()> {
     .build()
     .unwrap();
 
+    let font_bytes = load_font_bytes(
+        SystemSource::new().select_best_match(&[FamilyName::SansSerif], &Properties::new())?,
+    )?;
+
     let glyphs = GlyphCache::from_bytes(
-        include_bytes!("../assets/FiraSans-Regular.ttf"),
+        // include_bytes!("../assets/FiraSans-Regular.ttf"),
+        &*font_bytes,
         (),
         TextureSettings::new(),
     )
