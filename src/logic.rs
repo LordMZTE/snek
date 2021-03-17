@@ -229,8 +229,8 @@ impl<'a> Game<'a> {
         self.apple_pos = None;
         while self.apple_pos.is_none() || self.snek.check_collides(self.apple_pos.unwrap()) {
             self.apple_pos = Some((
-                self.apple_rand.gen_range(0, self.game_size.0),
-                self.apple_rand.gen_range(0, self.game_size.1),
+                self.apple_rand.gen_range(0..self.game_size.0),
+                self.apple_rand.gen_range(0..self.game_size.1),
             ));
         }
     }
